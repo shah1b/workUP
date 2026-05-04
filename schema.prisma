@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  name           String
+  email          String       @unique
+  hashedPassword String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  profile        UserProfile?
+  resumes        Resume[]
+  matchScores    MatchScore[]
+  applications   Application[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model UserProfile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  location          String?
+  remoteOnly        Boolean  @default(true)
+  desiredRoles      String[]
+  skills            String[]
+  yearsOfExperience Int?
+  salaryMin         Int?
+  salaryMax         Int?
+  currency          String   @default("USD")
+  languages         String[]
+  updatedAt         DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userEmbedding UserEmbedding?
+
+  @@map("user_profiles")
+}
+
+model UserEmbedding {
+  id        String   @id @default(uuid())
+  profileId String   @unique
+  vector    Float[]
+  createdAt DateTime @default(now())
+
+  profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("user_embeddings")
+}
+
+model Resume {
+  id              String   @id @default(uuid())
+  userId          String
+  originalFileUrl String
+  extractedText   String?
+  parsedJson      Json?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("resumes")
+}
+
+model Job {
+  id           String   @id @default(uuid())
+  title        String
+  company      String
+  companyLogo  String?
+  location     String
+  isRemote     Boolean  @default(false)
+  jobType      JobType  @default(FULL_TIME)
+  description  String
+  requirements String[]
+  skills       String[]
+  source       String
+  sourceUrl    String
+  postedAt     DateTime
+  salaryMin    Int?
+  salaryMax    Int?
+  currency     String   @default("USD")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  embedding    JobEmbedding?
+  matchScores  MatchScore[]
+  applications Application[]
+
+  @@map("jobs")
+}
+
+model JobEmbedding {
+  id        String   @id @default(uuid())
+  jobId     String   @unique
+  vector    Float[]
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_embeddings")
+}
+
+model MatchScore {
+  id            String   @id @default(uuid())
+  userId        String
+  jobId         String
+  score         Int
+  skillsScore   Float
+  locationScore Float
+  salaryScore   Float
+  reasons       String[]
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@map("match_scores")
+}
+
+model Application {
+  id        String            @id @default(uuid())
+  userId    String
+  jobId     String
+  status    ApplicationStatus @default(SAVED)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@map("applications")
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEWING
+  OFFER
+  REJECTED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+}
